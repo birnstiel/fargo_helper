@@ -140,7 +140,7 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
         out.nth = len(out.th)
 
     for q in keys:
-        res = np.fromfile(out.outputdir / f'gasdens{N}.dat', dtype=out.dtype)
+        res = np.fromfile(out.outputdir / f'gas{q}{N}.dat', dtype=out.dtype)
         setattr(out, q, res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
         del res
 

@@ -78,10 +78,20 @@ def read_fargo_2D(outputdir, N):
     return out
 
 
+def get_numbers(outputdir):
+    "get all the string numbers of the snapshots in the folder"
+    outputdir = Path(outputdir)
+    N_str = [d.stem.replace('gasdens', '') for d in outputdir.glob('gasdens*') if '2d' not in d.name]
+    N = [int(_N) for _N in N_str]
+    idx = np.argsort(N)
+    N_str = [N_str[i] for i in idx]
+    return N_str
+
+
 def read_fargo(outputdir, N, dtype=None, keys='dens'):
     """read fargo output
 
-    Reads the domain (in x, y, z) and the given keys.
+    Reads the domain (in x, y, z) and the given keys from output #N.
 
     Keys can be a comma separated float. 'all' will be
     interpreted as 'rho,vx,vy,vz'
@@ -95,13 +105,21 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
         keys = 'dens,vx,vy,vz'
 
     keys = [k.strip() for k in keys.split(',')]
+    
 
     out = SimpleNamespace()
     out.outputdir = Path(outputdir)
+    out.N = N
+    out.Ns = get_numbers(out.outputdir)
+    
+    # update snapshot number
+    if N == -1:
+        # find maximum snapshot number
+        out.N = int(out.Ns[out.N])
 
     # try to read summary and get the time from it
     try:
-        out.summary = next(out.outputdir.glob(f'summary{N:d}.dat')).read_text()
+        out.summary = next(out.outputdir.glob(f'summary{out.N:d}.dat')).read_text()
         out.time = float(out.summary.split('at simulation time ')[1].split(' ')[0])
     except Exception:
         out.time = None
@@ -140,7 +158,7 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
         out.nth = len(out.th)
 
     for q in keys:
-        res = np.fromfile(out.outputdir / f'gas{q}{N}.dat', dtype=out.dtype)
+        res = np.fromfile(out.outputdir / f'gas{q}{out.N}.dat', dtype=out.dtype)
         setattr(out, q, res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
         del res
 

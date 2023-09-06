@@ -101,6 +101,8 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
     Returns a `SimpleNamespace` with all data.
     """
 
+    N = int(float(N))
+    
     if keys == 'all':
         keys = 'dens,vx,vy,vz'
 
@@ -157,10 +159,26 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
         out.th = 0.5 * (out.thi[1:] + out.thi[:-1])
         out.nth = len(out.th)
 
+    # handle gas quantities
+
     for q in keys:
         res = np.fromfile(out.outputdir / f'gas{q}{out.N}.dat', dtype=out.dtype)
         setattr(out, q, res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
         del res
+
+    # handle dust quantities
+
+    invSt_keys = [key for key in out.params.__dict__.keys() if key.startswith('invstokes')]
+    n_dust = len(invSt_keys)
+
+    for i_dust in range(1, n_dust + 1):
+        for q in keys:
+            try:
+                res = np.fromfile(out.outputdir / f'dust{n_dust}{q}{out.N}.dat', dtype=out.dtype)
+                setattr(out, f'dust{n_dust}{q}', res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
+                del res
+            except FileNotFoundError as e:
+                print(e)
 
     out.rho = out.dens
 

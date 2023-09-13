@@ -174,12 +174,13 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
     for i_dust in range(1, n_dust + 1):
         for q in keys:
             try:
-                res = np.fromfile(out.outputdir / f'dust{n_dust}{q}{out.N}.dat', dtype=out.dtype)
-                setattr(out, f'dust{n_dust}{q}', res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
+                res = np.fromfile(out.outputdir / f'dust{i_dust}{q}{out.N}.dat', dtype=out.dtype)
+                setattr(out, f'dust{i_dust}{q}', res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
                 del res
             except FileNotFoundError as e:
                 print(e)
 
     out.rho = out.dens
+    out.n_dust = n_dust
 
     return out

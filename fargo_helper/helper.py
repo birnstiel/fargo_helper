@@ -102,18 +102,17 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
     """
 
     N = int(float(N))
-    
+
     if keys == 'all':
         keys = 'dens,vx,vy,vz'
 
     keys = [k.strip() for k in keys.split(',')]
-    
 
     out = SimpleNamespace()
     out.outputdir = Path(outputdir)
     out.N = N
     out.Ns = get_numbers(out.outputdir)
-    
+
     # update snapshot number
     if N == -1:
         # find maximum snapshot number
@@ -141,30 +140,51 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
             out.dtype = np.float64
 
     # read the grid
-    if out.params.coordinates != 'spherical':
+    if out.params.coordinates == 'spherical':
+
+        if (out.outputdir / 'domain_x.dat').is_file():
+            out.phii = np.loadtxt(out.outputdir / 'domain_x.dat')
+            out.phi = 0.5 * (out.phii[1:] + out.phii[:-1])
+            out.nphi = len(out.phi)
+
+        if (out.outputdir / 'domain_y.dat').is_file():
+            out.ri = np.loadtxt(out.outputdir / 'domain_y.dat')[3:-3]
+            out.r = 0.5 * (out.ri[1:] + out.ri[:-1])
+            out.nr = len(out.r)
+
+        if (out.outputdir / 'domain_z.dat').is_file():
+            out.thi = np.loadtxt(out.outputdir / 'domain_z.dat')[3:-3]
+            out.th = 0.5 * (out.thi[1:] + out.thi[:-1])
+            out.nth = len(out.th)
+    elif out.params.coordinates == 'cylindrical':
+
+        if (out.outputdir / 'domain_x.dat').is_file():
+            out.phii = np.loadtxt(out.outputdir / 'domain_x.dat')
+            out.phi = 0.5 * (out.phii[1:] + out.phii[:-1])
+            out.nphi = len(out.phi)
+
+        if (out.outputdir / 'domain_y.dat').is_file():
+            out.ri = np.loadtxt(out.outputdir / 'domain_y.dat')[3:-3]
+            out.r = 0.5 * (out.ri[1:] + out.ri[:-1])
+            out.nr = len(out.r)
+
+    else:
         raise ValueError('only spherical coordinates are implemented')
-
-    if (out.outputdir / 'domain_x.dat').is_file():
-        out.phii = np.loadtxt(out.outputdir / 'domain_x.dat')
-        out.phi = 0.5 * (out.phii[1:] + out.phii[:-1])
-        out.nphi = len(out.phi)
-
-    if (out.outputdir / 'domain_y.dat').is_file():
-        out.ri = np.loadtxt(out.outputdir / 'domain_y.dat')[3:-3]
-        out.r = 0.5 * (out.ri[1:] + out.ri[:-1])
-        out.nr = len(out.r)
-
-    if (out.outputdir / 'domain_z.dat').is_file():
-        out.thi = np.loadtxt(out.outputdir / 'domain_z.dat')[3:-3]
-        out.th = 0.5 * (out.thi[1:] + out.thi[:-1])
-        out.nth = len(out.th)
 
     # handle gas quantities
 
     for q in keys:
-        res = np.fromfile(out.outputdir / f'gas{q}{out.N}.dat', dtype=out.dtype)
-        setattr(out, q, res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
-        del res
+        try:
+            res = np.fromfile(out.outputdir / f'gas{q}{out.N}.dat', dtype=out.dtype)
+            if out.params.coordinates == 'spherical':
+                setattr(out, q, res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
+            elif out.params.coordinates == 'cylindrical':
+                setattr(out, q, res.reshape(out.nr, out.nphi))
+            del res
+        except FileNotFoundError as e:
+            print(e)
+
+
 
     # handle dust quantities
 
@@ -174,8 +194,11 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
     for i_dust in range(1, n_dust + 1):
         for q in keys:
             try:
-                res = np.fromfile(out.outputdir / f'dust{n_dust}{q}{out.N}.dat', dtype=out.dtype)
-                setattr(out, f'dust{n_dust}{q}', res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
+                res = np.fromfile(out.outputdir / f'dust{i_dust}{q}{out.N}.dat', dtype=out.dtype)
+                if out.params.coordinates == 'spherical':
+                    setattr(out, f'dust{i_dust}{q}', res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
+                elif out.params.coordinates == 'cylindrical':
+                    setattr(out, f'dust{i_dust}{q}', res.reshape(out.nr, out.nphi))
                 del res
             except FileNotFoundError as e:
                 print(e)

@@ -204,5 +204,6 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
                 print(e)
 
     out.rho = out.dens
+    out.n_dust = n_dust
 
     return out

@@ -36,48 +36,6 @@ class Parameters():
             setattr(self, name.lower(), par[name])
 
 
-def read_fargo_2D(outputdir, N):
-    """read fargo output
-
-    Reads the domain (in x, y) and gas density.
-
-    Tries to read time from summary.
-
-    Returns a `SimpleNamespace` with all data.
-    """
-
-    outputdir = Path(outputdir)
-
-    phii = np.loadtxt(outputdir / 'domain_x.dat')
-    phi = 0.5 * (phii[1:] + phii[:-1])
-    nphi = len(phi)
-
-    ri = np.loadtxt(outputdir / 'domain_y.dat')[3:-3]
-    r = 0.5 * (ri[1:] + ri[:-1])
-    nr = len(r)
-
-    sig = np.fromfile(outputdir / f'gasdens{N}.dat').reshape(nr, nphi)
-
-    try:
-        summary = next(outputdir.glob(f'summary{N:d}.dat')).read_text()
-        time = float(summary.split('at simulation time ')[1].split(' ')[0])
-    except Exception:
-        time = None
-        summary = None
-
-    out = SimpleNamespace()
-    out.time = time
-    out.phi = phi
-    out.phii = phii
-    out.nphi = nphi
-    out.r = r
-    out.ri = ri
-    out.nr = nr
-    out.sig = sig
-    out.summary = summary
-    return out
-
-
 def get_numbers(outputdir):
     "get all the string numbers of the snapshots in the folder"
     outputdir = Path(outputdir)
@@ -88,7 +46,41 @@ def get_numbers(outputdir):
     return N_str
 
 
-def read_fargo(outputdir, N, dtype=None, keys='dens'):
+def read_planet_files(outputdir, time=None, big=False):
+    """Reads planet data from the planet files
+
+    Parameters
+    ----------
+    outputdir : path
+        path where the output data can be found
+    time : None | flot
+        if None, returns all data, if a string gives the closest snapshot
+
+    big : bool
+        if True, read from bigplanet files instead of planet files
+
+    Returns
+    -------
+    dictionary
+        one entry for each planet, containing 
+        snapshot,x,y,z,vx,vy,vz,mass,time,omegaframe
+    """
+    stem = 'big' * big + 'planet'
+    files = Path(outputdir).glob(stem + '*.dat')
+    planets = {}
+    for file in files:
+        ip = int(file.stem.split(stem)[1])
+        d = np.loadtxt(file)
+
+        if time is not None:
+            it = np.abs(d[:, -2] - time).argmin()
+            d = d[it, :]
+
+        planets[ip] = d
+    return planets
+
+
+def read_fargo(outputdir, N, dtype=None, keys='dens', verbose=False):
     """read fargo output
 
     Reads the domain (in x, y, z) and the given keys from output #N.
@@ -131,6 +123,9 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
         out.params = Parameters(out.outputdir)
     except Exception:
         out.params = None
+
+    # try and read the planet properties
+    out.planets = read_planet_files(out.outputdir, time=out.time)
 
     # try and find out the data type (single or double)
     if dtype is None:
@@ -182,9 +177,8 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
                 setattr(out, q, res.reshape(out.nr, out.nphi))
             del res
         except FileNotFoundError as e:
-            print(e)
-
-
+            if verbose:
+                print(e)
 
     # handle dust quantities
 
@@ -201,7 +195,8 @@ def read_fargo(outputdir, N, dtype=None, keys='dens'):
                     setattr(out, f'dust{i_dust}{q}', res.reshape(out.nr, out.nphi))
                 del res
             except FileNotFoundError as e:
-                print(e)
+                if verbose:
+                    print(e)
 
     out.rho = out.dens
     out.n_dust = n_dust

@@ -125,7 +125,13 @@ def read_fargo(outputdir, N, dtype=None, keys='dens', verbose=False):
         out.params = None
 
     # try and read the planet properties
-    out.planets = read_planet_files(out.outputdir, time=out.time)
+    try:
+        out.planets = read_planet_files(out.outputdir, time=out.time)
+    except IndexError:
+        try:
+            out.planets = read_planet_files(out.outputdir, time=None)
+        except FileNotFoundError:
+            out.planets = None
 
     # try and find out the data type (single or double)
     if dtype is None:

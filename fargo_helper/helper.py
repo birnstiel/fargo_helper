@@ -80,13 +80,15 @@ def read_planet_files(outputdir, time=None, big=False):
     return planets
 
 
-def read_fargo(outputdir, N, dtype=None, keys='dens', verbose=False):
+def read_fargo(outputdir, N, dtype=None, keys='dens', read_dust=False, verbose=False):
     """read fargo output
 
     Reads the domain (in x, y, z) and the given keys from output #N.
 
     Keys can be a comma separated float. 'all' will be
     interpreted as 'rho,vx,vy,vz'
+
+    if `read_dust` is True, all dust quantities will be read in as well
 
     Tries to read time from summary.
 
@@ -170,41 +172,38 @@ def read_fargo(outputdir, N, dtype=None, keys='dens', verbose=False):
             out.nr = len(out.r)
 
     else:
-        raise ValueError('only spherical coordinates are implemented')
+        raise ValueError('only spherical and cylindrical coordinates are implemented')
+    
+    # keys are just the names of the quantities. full_keys also contain the prefix 'gas' or 'dust'
+    full_keys = [f'gas{q}' for q in keys]
+    
+    # handle dust quantities:
+    # we get all the invstokes-nubers and assume the dust quantities are named dust1dens, dust1vx, ...
 
-    # handle gas quantities
+    invSt_keys = [key for key in out.params.__dict__.keys() if key.startswith('invstokes')]
+    n_dust = len(invSt_keys)
 
-    for q in keys:
+    # we add all the dust quantities to the keys
+    if (n_dust > 0) and read_dust:
+        full_keys += [f'dust{i_dust}{q}' for i_dust in range(1, n_dust + 1) for q in keys]
+
+    # handle all quantities to be read in
+    out.keys = []
+    for q in full_keys:
         try:
-            res = np.fromfile(out.outputdir / f'gas{q}{out.N}.dat', dtype=out.dtype)
+            res = np.fromfile(out.outputdir / f'{q}{out.N}.dat', dtype=out.dtype)
             if out.params.coordinates == 'spherical':
                 setattr(out, q, res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
             elif out.params.coordinates == 'cylindrical':
                 setattr(out, q, res.reshape(out.nr, out.nphi))
+            out.keys.append(q)
             del res
         except FileNotFoundError as e:
             if verbose:
                 print(e)
 
-    # handle dust quantities
 
-    invSt_keys = [key for key in out.params.__dict__.keys() if key.startswith('invstokes')]
-    n_dust = len(invSt_keys)
-
-    for i_dust in range(1, n_dust + 1):
-        for q in keys:
-            try:
-                res = np.fromfile(out.outputdir / f'dust{i_dust}{q}{out.N}.dat', dtype=out.dtype)
-                if out.params.coordinates == 'spherical':
-                    setattr(out, f'dust{i_dust}{q}', res.reshape(out.nth, out.nr, out.nphi).transpose(1, 2, 0))
-                elif out.params.coordinates == 'cylindrical':
-                    setattr(out, f'dust{i_dust}{q}', res.reshape(out.nr, out.nphi))
-                del res
-            except FileNotFoundError as e:
-                if verbose:
-                    print(e)
-
-    out.rho = out.dens
+    out.rho = out.gasdens
     out.n_dust = n_dust
 
     return out

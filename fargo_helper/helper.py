@@ -10,24 +10,42 @@ class Parameters():
     input: string -> name of the parfile, normally variables.par
     """
 
-    def __init__(self, directory=''):
+    def __init__(self, directory='', fname="variables.par"):
         directory = Path(directory)
         try:
-            params = open(directory / "variables.par", 'r')
+            params = open(directory / fname, 'r')
         except IOError:  # Error checker.
-            print("parameter file not found.")
+            print("parameter file '{fname}' not found in path '{directory}'")
             return
 
         lines = params.readlines()      # Reading the parfile
         params.close()                  # Closing the parfile
         par = {}                        # Allocating a dictionary
         for line in lines:              # Iterating over the parfile
-            name, value = line.split()  # Spliting the name and the value (first blank)
+            split = line.split()  # Spliting the name and the value (first blank)
+
+            if len(split) == 0 or split[0].startswith('#'):
+                continue
+
+            if len(split) >= 1:
+                name = split[0]
+
+            if len(split) >= 2:
+                value = split[1]
+            else:
+                value = None
+
+            if len(split) >= 3:
+                comment = ' '.join(split[2:])
+            else:
+                comment = None
+
             try:
                 val = literal_eval(value)
             except Exception:
                 val = value
             par[name] = val
+            par['_' + name] = comment
 
         # A control atribute, actually not used, good for debbuging
         self._params = par

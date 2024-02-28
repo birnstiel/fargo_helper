@@ -104,7 +104,7 @@ def read_fargo(outputdir, N, dtype=None, keys='dens', read_dust=False, verbose=F
     Reads the domain (in x, y, z) and the given keys from output #N.
 
     Keys can be a comma separated float. 'all' will be
-    interpreted as 'rho,vx,vy,vz'
+    interpreted as 'dens,vx,vy,vz'
 
     if `read_dust` is True, all dust quantities will be read in as well
 
@@ -221,7 +221,6 @@ def read_fargo(outputdir, N, dtype=None, keys='dens', read_dust=False, verbose=F
                 print(e)
 
 
-    out.rho = out.gasdens
     out.n_dust = n_dust
 
     return out

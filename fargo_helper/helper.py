@@ -15,7 +15,7 @@ class Parameters():
         try:
             params = open(directory / fname, 'r')
         except IOError:  # Error checker.
-            print("parameter file '{fname}' not found in path '{directory}'")
+            print(f"parameter file '{fname}' not found in path '{directory}'")
             return
 
         lines = params.readlines()      # Reading the parfile

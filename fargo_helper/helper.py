@@ -121,7 +121,9 @@ def read_fargo(outputdir, N, dtype=None, keys='dens', read_dust=False, verbose=F
     keys = [k.strip() for k in keys.split(',')]
 
     out = SimpleNamespace()
-    out.outputdir = Path(outputdir)
+    out.outputdir = Path(outputdir).expanduser()
+    if not out.outputdir.exists():
+        raise ValueError('The data directory does not exist')
     out.N = N
     out.Ns = get_numbers(out.outputdir)
 
